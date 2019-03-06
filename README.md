@@ -9,4 +9,7 @@ Factoring 계약 전에는 반드시 아래와 같은 자료를 필요로 한다
 이 절차는 매우 중요하다. 왜냐하면 제3자와 Factoring 계약시, 계약조건 및 수수료 등 비용에 큰 변동이 있을 수 있기 때문이다.(당신이라면 대금결제를 4개월 이상 지연하는 매출채권을 매입하겠는다?)<br/><br/>
 코드는 각 기간/ID별 매출의 질(입금이 이행되었는가? 아니면 어느정도 지연되었는가?)을 판단하기 위함이다. (매우 많은 계산을 요구한다)<br/><br/>
 
+* receivables-factoring.py : 분석코드
+* receivables-factoring-clustering-visualization.py : 분석자료의 시각화 분석 (K-Means / PCA / t-SNE)
+
 * https://en.wikipedia.org/wiki/Factoring_(finance)
