@@ -1,4 +1,4 @@
-# Why did I try to analyze account receivables For Finance Factoring
+# Analyze account receivables For Finance Factoring
 Finance Factoring은 회계상 매출채권(Account Receivables)을 제3자에게 판매하는 행위를 말한다.<br/>
 Factoring은 채권을 판매함으로 인하여 금융담보(Security)와 비슷한 성질을 가진다고 생각될 수 있으나, 실제로 금융담보와 성격이 매우 다르다고 할수 있다.<br/>
 왜냐하면 Factoring은 즉각적인 유동성 확보 및 회계부채감소의 효과를 기대함에 주목적이 있기 때문이다.<br/><br/>
