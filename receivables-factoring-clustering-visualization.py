@@ -5,12 +5,13 @@ from pandas import DataFrame, Series
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import KMeans
-from sklearn.decomposition import PCA
+from sklearn.decomposition import PCA, NMF
 from sklearn.manifold import TSNE
 from sklearn.model_selection import train_test_split
 
 ### Read output of factoring
 dataFactoring2 = pd.read_csv('./output/data-factoring.csv', low_memory=False)
+dataFactoring2.head()
 
 ### Normalize : A to I by Revenue (The sum of A to I will be 1)
 dataFactoring2Temp = dataFactoring2.iloc[:, 2:]
@@ -19,59 +20,97 @@ for col in dataFactoring2Temp.columns[1:]:
 del col
 
 ### Array of A to I
-dataFactoring2Temp = dataFactoring2Temp.iloc[:, 1:].values
+dataFactoring2Temp = dataFactoring2Temp.iloc[:, 1:]
+dataNormal = dataFactoring2Temp[dataFactoring2Temp['A'] == 1].reset_index(drop=True) # Properly Retrieved receivable Records
+dataOverdue = dataFactoring2Temp[dataFactoring2Temp['A'] < 1].reset_index(drop=True) # Overdue Retrieved receivable Records
+
+### Boxplot of dataOverdue data
+plt.figure(figsize=(12,6))
+plt.boxplot(([dataOverdue[col] for col in dataOverdue.columns.tolist()]))
+plt.xticks(range(0, 10), (list(' ABCDEFGHI')))
+plt.show()
+ # Columns C - H shows that most of records have alomost 0. Therefore, Making new feature is about the sum of C - H.
+
+### There are 4 features (A, B, C, I)
+dataOverdue['C'] = dataOverdue[dataOverdue.columns[2:-1]].sum(axis=1).copy()
+dataOverdue.drop(dataOverdue.columns[3:-1], axis=1, inplace=True)
 
 
-### Kmeans : Find Best K value
+### K-Means : Find Best K value
 inertias = []
-for k in range(1,10):
-    modelKmeans = KMeans(n_clusters=k, max_iter=500)
-    modelKmeans.fit(dataFactoring2Temp)
+for k in range(1,5):
+    modelKmeans = KMeans(n_clusters=k, max_iter=500, n_jobs=-1)
+    modelKmeans.fit(dataOverdue)
     inertias.append(modelKmeans.inertia_)
 del k
 
-### Elbow plot : inertias by Ks values
+### Elbow : inertias by Ks values
 plt.figure()
 plt.plot(inertias, marker='s')
-plt.show() # k = 4
+plt.show() # k == 3
 
-### Kmeans
-modelKmeans = KMeans(n_clusters=2, max_iter=500)
-modelKmeans.fit(dataFactoring2Temp)
-modelKmeansPred = modelKmeans.predict(dataFactoring2Temp)
-
-dataFactoring2Kmeans = DataFrame(dataFactoring2Temp, columns=list('ABCDEFGHI'))
-dataFactoring2Kmeans['Segment'] = modelKmeansPred
-
-# dataCorr = dataFactoring2Kmeans.drop('Segment', axis=1).corr()
-# sns.heatmap(dataCorr, annot=True, fmt='.3f', cmap='BrBG')
-# plt.show()
-
-_, temp = train_test_split(dataFactoring2Kmeans, stratify=dataFactoring2Kmeans['Segment'], test_size=.02)
-temp.reset_index(drop=True, inplace=True)
+### Labeling Cluster with K-Means(3)
+modelKmeans = KMeans(n_clusters=3, max_iter=500, n_jobs=-1)
+modelKmeans.fit(dataOverdue)
+pred = modelKmeans.predict(dataOverdue)
+dataOverdue['Segment'] = pred
 
 
+### PCA : EigenValues and Ratio
+modelPCA = PCA(n_components=4)
+modelPCA.fit(dataOverdue.iloc[:, :-1].values)
+ratioPCA = modelPCA.explained_variance_ratio_.cumsum()
+
+plt.plot(ratioPCA, marker='s')
+plt.rc('font', size=8)
+for i in range(4):
+    plt.text(i, ratioPCA[i]*1.01, '{:.2f}'.format(ratioPCA[i]))
+plt.title('Explained Variance Ratio : Cumulative Sum')
+plt.show() # 3 dimensional compression
+
+### PCA : 3 Dimensional
+modelPCA = PCA(n_components=3)
+modelPCA.fit(dataOverdue.iloc[:, :-1].values)
+dataPCA = modelPCA.transform(dataOverdue.iloc[:, :-1].values)
+dataPCA = DataFrame(dataPCA, columns=['e1', 'e2', 'e3'])
+dataPCA['Segment'] = pred
+
+### 3D Plot with PCA and K-Means Clustering
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+colors = ['blue', 'red', 'green']
+for i in range(3):
+    temp = dataPCA[dataPCA['Segment'] == i]
+    ax.scatter(temp['e1'], temp['e2'], temp['e3'], color=colors[i], label=str(i))
+ax.set_title('3 Dimensional Plot with PCA and K-Means')
+ax.legend(loc='best')
+plt.show()
+
+
+### TSNE : 2 Dimensional
 modelTSNE = TSNE(n_components=2)
-compressionTSNE = modelTSNE.fit_transform(temp.iloc[:, :-1].values)
-dataTSNE = pd.concat([temp.iloc[:, -1], DataFrame(compressionTSNE, columns=['A', 'B'])], axis=1)
+dataTSNE = modelTSNE.fit_transform(dataOverdue.iloc[:, :-1].values)
+dataTSNE = DataFrame(dataTSNE, columns=['e1', 'e2'])
+dataTSNE['Segment'] = pred
 
-# temp['bankrupt'] = np.nan
-# temp.loc[temp['I'] > 0, 'bankrupt'] = 1
-# temp.loc[temp['bankrupt'].isnull(), 'bankrupt'] = 0
-
-# dataTSNE['bankrupt'] = temp['bankrupt']
-# dataTSNE.head()
-
-fig, ax = plt.subplots(1,1, figsize=(12,12))
-sns.scatterplot(data=dataTSNE, x='A', y='B', hue='Segment', ax=ax)
-# sns.scatterplot(data=dataTSNE, x='A', y='B', hue='bankrupt', ax=ax[1])
+sns.scatterplot(data=dataTSNE, x='e1', y='e2', hue='Segment')
+plt.title('t-SNE (n_component=2)')
 plt.show()
 
+### TSNE : 3 Dimensional
+modelTSNE = TSNE(n_components=3)
+dataTSNE1 = modelTSNE.fit_transform(dataOverdue.iloc[:, :-1].values)
+dataTSNE1 = DataFrame(dataTSNE1, columns=['e1', 'e2', 'e3'])
+dataTSNE1['Segment'] = pred
 
-modelPCA = PCA(n_components=2)
-compressPCA = modelPCA.fit_transform(dataFactoring2Kmeans.iloc[:, :-1].values)
-dataPCA = pd.concat([dataFactoring2Kmeans['Segment'], DataFrame(compressPCA, columns=['PCA1', 'PCA2'])], axis=1)
-
-sns.scatterplot(data=dataPCA, x='PCA1', y='PCA2', hue='Segment')
+### 3D Plot with t-SNE and K-Means Clustering
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+colors = ['blue', 'red', 'green']
+for i in range(3):
+    temp = dataTSNE1[dataTSNE1['Segment'] == i]
+    ax.scatter(temp['e1'], temp['e2'], temp['e3'], color=colors[i], label=str(i))
+ax.set_title('3 Dimensional Plot with t-SNE and K-Means')
+ax.legend(loc='best')
 plt.show()
-
